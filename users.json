@@ -1,13 +1,14 @@
 {
   "tenant_config": {
     "domain": "telescopedevexternal.onmicrosoft.com",
-    "default_password": "TempPassword123!",
+    "password_length": 12,
     "force_password_change": true
   },
   "users": [
     {
       "displayName": "John Doe",
       "mailNickname": "johndoe",
+      "emailaddress": "johndoe@contoso.com",
       "givenName": "John",
       "surname": "Doe",
       "jobTitle": "Software Developer",
@@ -18,6 +19,7 @@
     {
       "displayName": "Jane Smith",
       "mailNickname": "janesmith",
+      "emailaddress": "janesmith@contoso.com",
       "givenName": "Jane",
       "surname": "Smith",
       "jobTitle": "Product Manager",
@@ -28,6 +30,7 @@
     {
       "displayName": "Mike Johnson",
       "mailNickname": "mikejohnson",
+      "emailaddress": "mikejohnson@contoso.com",
       "givenName": "Mike",
       "surname": "Johnson",
       "jobTitle": "DevOps Engineer",
@@ -38,6 +41,7 @@
     {
       "displayName": "Sarah Wilson",
       "mailNickname": "sarahwilson",
+      "emailaddress": "sarahwilson@contoso.com",
       "givenName": "Sarah",
       "surname": "Wilson",
       "jobTitle": "UX Designer",

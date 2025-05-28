@@ -1,85 +1,136 @@
 {
   "operation": {
-    "success": false,
+    "success": true,
     "message": "Processed 4 external users using Azure B2B",
-    "timestamp": "2025-05-28T18:55:37.208982+00:00",
-    "duration": "0.48s"
+    "timestamp": "2025-05-28T19:07:37.655665+00:00",
+    "duration": "4.30s"
   },
   "authentication": {
     "success": true,
     "message": "Authentication successful",
-    "timestamp": "2025-05-28T18:55:37.684684+00:00",
+    "timestamp": "2025-05-28T19:07:38.055402+00:00",
     "token_type": "Bearer",
     "expires_in": 3599
   },
   "summary": {
     "total_users": 4,
-    "successful_creations": 0,
-    "failed_creations": 4,
-    "success_rate": "0.0%"
+    "successful_creations": 4,
+    "failed_creations": 0,
+    "success_rate": "100.0%"
   },
-  "created_users": [],
-  "failed_users": [
+  "created_users": [
     {
-      "displayName": "John Doe",
-      "externalEmail": "Unknown",
-      "error": {
-        "success": false,
-        "message": "Error processing user: External email is required for user John Doe",
-        "timestamp": "2025-05-28T18:55:37.685073+00:00",
-        "error": {
-          "type": "PROCESSING_ERROR",
-          "details": "External email is required for user John Doe"
-        }
+      "success": true,
+      "message": "External user created successfully",
+      "timestamp": "2025-05-28T19:07:39.569976+00:00",
+      "user": {
+        "objectId": "c6a15d9c-c329-401a-a0d8-7c8628338981",
+        "userPrincipalName": "johndoe_contoso.com#EXT#@telescopedevexternal.onmicrosoft.com",
+        "displayName": "John Doe",
+        "mail": "johndoe@contoso.com",
+        "externalEmail": "johndoe@contoso.com",
+        "userType": null,
+        "accountEnabled": null,
+        "createdDateTime": null,
+        "givenName": "John",
+        "surname": "Doe",
+        "jobTitle": "Software Developer",
+        "department": null
+      },
+      "credentials": {
+        "password": ",1In@S]@#kV3",
+        "forceChangePasswordNextSignIn": true,
+        "warning": "Store this password securely - it won't be available again"
       }
     },
     {
-      "displayName": "Jane Smith",
-      "externalEmail": "Unknown",
-      "error": {
-        "success": false,
-        "message": "Error processing user: External email is required for user Jane Smith",
-        "timestamp": "2025-05-28T18:55:37.685233+00:00",
-        "error": {
-          "type": "PROCESSING_ERROR",
-          "details": "External email is required for user Jane Smith"
-        }
+      "success": true,
+      "message": "External user created successfully",
+      "timestamp": "2025-05-28T19:07:40.601950+00:00",
+      "user": {
+        "objectId": "14c0092e-265d-4dc3-b85a-cced3a673687",
+        "userPrincipalName": "janesmith_contoso.com#EXT#@telescopedevexternal.onmicrosoft.com",
+        "displayName": "Jane Smith",
+        "mail": "janesmith@contoso.com",
+        "externalEmail": "janesmith@contoso.com",
+        "userType": null,
+        "accountEnabled": null,
+        "createdDateTime": null,
+        "givenName": "Jane",
+        "surname": "Smith",
+        "jobTitle": "Product Manager",
+        "department": null
+      },
+      "credentials": {
+        "password": "Jj.A+}fx=qm4",
+        "forceChangePasswordNextSignIn": true,
+        "warning": "Store this password securely - it won't be available again"
       }
     },
     {
-      "displayName": "Mike Johnson",
-      "externalEmail": "Unknown",
-      "error": {
-        "success": false,
-        "message": "Error processing user: External email is required for user Mike Johnson",
-        "timestamp": "2025-05-28T18:55:37.685329+00:00",
-        "error": {
-          "type": "PROCESSING_ERROR",
-          "details": "External email is required for user Mike Johnson"
-        }
+      "success": true,
+      "message": "External user created successfully",
+      "timestamp": "2025-05-28T19:07:41.113736+00:00",
+      "user": {
+        "objectId": "1556489d-1074-4547-a2b6-24cc874e34ca",
+        "userPrincipalName": "mikejohnson_contoso.com#EXT#@telescopedevexternal.onmicrosoft.com",
+        "displayName": "Mike Johnson",
+        "mail": "mikejohnson@contoso.com",
+        "externalEmail": "mikejohnson@contoso.com",
+        "userType": null,
+        "accountEnabled": null,
+        "createdDateTime": null,
+        "givenName": "Mike",
+        "surname": "Johnson",
+        "jobTitle": "DevOps Engineer",
+        "department": null
+      },
+      "credentials": {
+        "password": "aXy[^dCpk1zH",
+        "forceChangePasswordNextSignIn": true,
+        "warning": "Store this password securely - it won't be available again"
       }
     },
     {
-      "displayName": "Sarah Wilson",
-      "externalEmail": "Unknown",
-      "error": {
-        "success": false,
-        "message": "Error processing user: External email is required for user Sarah Wilson",
-        "timestamp": "2025-05-28T18:55:37.685428+00:00",
-        "error": {
-          "type": "PROCESSING_ERROR",
-          "details": "External email is required for user Sarah Wilson"
-        }
+      "success": true,
+      "message": "External user created successfully",
+      "timestamp": "2025-05-28T19:07:41.955515+00:00",
+      "user": {
+        "objectId": "4f07d0dd-dc01-4940-880b-7ef43c4212a3",
+        "userPrincipalName": "sarahwilson_contoso.com#EXT#@telescopedevexternal.onmicrosoft.com",
+        "displayName": "Sarah Wilson",
+        "mail": "sarahwilson@contoso.com",
+        "externalEmail": "sarahwilson@contoso.com",
+        "userType": null,
+        "accountEnabled": null,
+        "createdDateTime": null,
+        "givenName": "Sarah",
+        "surname": "Wilson",
+        "jobTitle": "UX Designer",
+        "department": null
+      },
+      "credentials": {
+        "password": "TJ?qjl?AI{3-",
+        "forceChangePasswordNextSignIn": true,
+        "warning": "Store this password securely - it won't be available again"
       }
     }
   ],
+  "failed_users": [],
   "azure_b2b_info": {
     "pattern": "External users created with B2B UPN format: user_domain.com#EXT#@tenant.onmicrosoft.com",
     "user_type": "Guest",
-    "original_emails_preserved": true
+    "original_emails_preserved": true,
+    "supported_email_fields": [
+      "emailaddress",
+      "externalEmail",
+      "email",
+      "mail"
+    ]
   },
   "security_notes": {
     "passwords_included": true,
+    "extension_attributes_used": "extensionAttribute1 for primary_tenant_id",
     "warning": "Handle generated passwords securely"
   }
 }

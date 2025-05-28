@@ -70,7 +70,7 @@ class AzureConfig:
             logger.error(f"Invalid client ID format: {self.client_id}")
             raise ValueError("AZURE_CLIENT_ID must be a valid GUID")
         
-        logger.info(f"Azure B2B configuration loaded successfully for tenant: {self.tenant_id[:8]}...")
+        logger.info(f"✅ Azure B2B configuration loaded successfully for tenant: {self.tenant_id[:8]}...")
 
 class SecurePasswordGenerator:
     """
@@ -131,7 +131,7 @@ class EntraB2BUserCreator:
         }
         
         try:
-            logger.info(f"Requesting access token for tenant: {self.config.tenant_id[:8]}...")
+            logger.info(f"🔑 Requesting access token for tenant: {self.config.tenant_id[:8]}...")
             response = requests.post(token_url, data=token_data, timeout=30)
             response.raise_for_status()
             
@@ -195,15 +195,15 @@ class EntraB2BUserCreator:
                     verified_domains.append(domain.get('id'))
             
             self.verified_domains = verified_domains
-            logger.info(f"Found {len(verified_domains)} verified domains: {', '.join(verified_domains)}")
+            logger.info(f"🌐 Found {len(verified_domains)} verified domains: {', '.join(verified_domains)}")
             return verified_domains
             
         except requests.exceptions.RequestException as e:
-            logger.error(f"Error retrieving verified domains: {e}")
+            logger.error(f"❌ Error retrieving verified domains: {e}")
             # Fallback to common default domain pattern
-            default_domain = f"{self.config.tenant_id.split('-')[0]}.onmicrosoft.com"
+            default_domain = f"telescopedevexternal.onmicrosoft.com"
             self.verified_domains = [default_domain]
-            logger.warning(f"Using fallback domain: {default_domain}")
+            logger.warning(f"⚠️  Using fallback domain: {default_domain}")
             return self.verified_domains
     
     def create_external_user_upn(self, external_email: str, verified_domains: List[str]) -> str:
@@ -227,7 +227,7 @@ class EntraB2BUserCreator:
                 break
         
         if not primary_domain:
-            primary_domain = verified_domains[0] if verified_domains else f"tenant.onmicrosoft.com"
+            primary_domain = verified_domains[0] if verified_domains else "telescopedevexternal.onmicrosoft.com"
         
         # Convert external email to B2B format
         # Replace @ with _ and add domain extension
@@ -241,7 +241,7 @@ class EntraB2BUserCreator:
         # Azure B2B UPN format: username_domain.com#EXT#@tenant.onmicrosoft.com
         b2b_upn = f"{username}_{domain}#EXT#@{primary_domain}"
         
-        logger.info(f"Created B2B UPN: {external_email} -> {b2b_upn}")
+        logger.info(f"🔗 Created B2B UPN: {external_email} -> {b2b_upn}")
         return b2b_upn
     
     def create_external_user(self, user_data: Dict[str, Any], return_password: bool = False) -> Dict[str, Any]:
@@ -271,12 +271,18 @@ class EntraB2BUserCreator:
                 "timestamp": datetime.now(timezone.utc).isoformat()
             }
         
-        # Extract external email and create B2B UPN
-        external_email = user_data.get('externalEmail') or user_data.get('mail')
+        # Extract external email from multiple possible field names
+        external_email = (
+            user_data.get('externalEmail') or 
+            user_data.get('emailaddress') or 
+            user_data.get('email') or 
+            user_data.get('mail')
+        )
+        
         if not external_email:
             return {
                 "success": False,
-                "message": "External email is required for B2B user creation",
+                "message": "External email is required for B2B user creation. Provide 'emailaddress', 'externalEmail', 'email', or 'mail' field.",
                 "timestamp": datetime.now(timezone.utc).isoformat()
             }
         
@@ -323,7 +329,7 @@ class EntraB2BUserCreator:
             if 'passwordProfile' in azure_user_data:
                 generated_password = azure_user_data['passwordProfile'].get('password')
             
-            logger.info(f"Creating external user: {user_data.get('displayName')} ({external_email})")
+            logger.info(f"👤 Creating external user: {user_data.get('displayName')} ({external_email})")
             response = requests.post(create_user_url, headers=headers, json=azure_user_data, timeout=30)
             response.raise_for_status()
             
@@ -410,7 +416,7 @@ def load_user_data(json_file_path: str = "users.json") -> Optional[Dict[str, Any
             logger.error("Invalid JSON structure. Missing 'users' or 'tenant_config' sections.")
             return None
         
-        logger.info(f"Loaded {len(data['users'])} users from {json_file_path}")
+        logger.info(f"📋 Loaded {len(data['users'])} users from {json_file_path}")
         return data
         
     except json.JSONDecodeError as e:
@@ -442,14 +448,23 @@ def transform_external_user_data(user_info: Dict[str, Any], tenant_config: Dict[
         logger.info(f"🔐 Generated secure password for {user_info['displayName']}")
     
     # For external users, use their actual external email
-    external_email = user_info.get('externalEmail') or user_info.get('email') or user_info.get('userPrincipalName')
+    # Support multiple field names for flexibility
+    external_email = (
+        user_info.get('externalEmail') or 
+        user_info.get('emailaddress') or 
+        user_info.get('email') or 
+        user_info.get('mail') or
+        user_info.get('userPrincipalName')
+    )
+    
     if not external_email:
-        raise ValueError(f"External email is required for user {user_info.get('displayName', 'Unknown')}")
+        raise ValueError(f"External email is required for user {user_info.get('displayName', 'Unknown')}. Provide 'emailaddress', 'externalEmail', 'email', or 'mail' field.")
     
     user_data = {
         "accountEnabled": user_info.get('accountEnabled', True),
         "displayName": user_info['displayName'],
         "externalEmail": external_email,
+        "emailaddress": external_email,  # Support both naming conventions
         "mailNickname": user_info.get('mailNickname', external_email.split('@')[0]),
         "passwordProfile": {
             "forceChangePasswordNextSignIn": tenant_config.get('force_password_change', True),
@@ -473,8 +488,9 @@ def transform_external_user_data(user_info: Dict[str, Any], tenant_config: Dict[
             user_data["onPremisesExtensionAttributes"] = {
                 "extensionAttribute1": primary_tenant_id
             }
+            logger.info(f"🏷️  Added primary_tenant_id: {primary_tenant_id[:8]}... for {user_info['displayName']}")
         except ValueError:
-            logger.warning(f"Invalid GUID format for primary_tenant_id: {primary_tenant_id} for user {user_info['displayName']}")
+            logger.warning(f"⚠️  Invalid GUID format for primary_tenant_id: {primary_tenant_id} for user {user_info['displayName']}")
     
     return user_data
 
@@ -541,7 +557,7 @@ def create_external_users_from_json(json_file_path: str = "users.json", return_p
     
     for user_info in users_data:
         try:
-            logger.info(f"Processing external user: {user_info['displayName']}")
+            logger.info(f"👤 Processing external user: {user_info['displayName']}")
             
             # Transform user data for Azure AD B2B
             user_data = transform_external_user_data(user_info, tenant_config)
@@ -551,12 +567,14 @@ def create_external_users_from_json(json_file_path: str = "users.json", return_p
             
             if creation_result["success"]:
                 created_users.append(creation_result)
+                logger.info(f"✅ Successfully created: {user_info['displayName']}")
             else:
                 failed_users.append({
                     "displayName": user_info.get('displayName', 'Unknown'),
-                    "externalEmail": user_info.get('externalEmail', user_info.get('email', 'Unknown')),
+                    "externalEmail": user_info.get('emailaddress', user_info.get('email', 'Unknown')),
                     "error": creation_result
                 })
+                logger.error(f"❌ Failed to create: {user_info['displayName']}")
                 
         except Exception as e:
             error_result = {
@@ -570,9 +588,10 @@ def create_external_users_from_json(json_file_path: str = "users.json", return_p
             }
             failed_users.append({
                 "displayName": user_info.get('displayName', 'Unknown'),
-                "externalEmail": user_info.get('externalEmail', user_info.get('email', 'Unknown')),
+                "externalEmail": user_info.get('emailaddress', user_info.get('email', 'Unknown')),
                 "error": error_result
             })
+            logger.error(f"❌ Error processing: {user_info.get('displayName', 'Unknown')} - {str(e)}")
     
     operation_end = datetime.now(timezone.utc)
     duration = (operation_end - operation_start).total_seconds()
@@ -597,10 +616,12 @@ def create_external_users_from_json(json_file_path: str = "users.json", return_p
         "azure_b2b_info": {
             "pattern": "External users created with B2B UPN format: user_domain.com#EXT#@tenant.onmicrosoft.com",
             "user_type": "Guest",
-            "original_emails_preserved": True
+            "original_emails_preserved": True,
+            "supported_email_fields": ["emailaddress", "externalEmail", "email", "mail"]
         },
         "security_notes": {
             "passwords_included": return_passwords,
+            "extension_attributes_used": "extensionAttribute1 for primary_tenant_id",
             "warning": "Handle generated passwords securely" if return_passwords else None
         }
     }
@@ -610,7 +631,7 @@ def create_external_users_from_json(json_file_path: str = "users.json", return_p
         try:
             with open(output_file, 'w', encoding='utf-8') as f:
                 json.dump(result, f, indent=2, ensure_ascii=False)
-            logger.info(f"Results saved to {output_file}")
+            logger.info(f"💾 Results saved to {output_file}")
         except Exception as e:
             logger.error(f"Failed to save results to file: {e}")
     
@@ -642,8 +663,10 @@ if __name__ == "__main__":
         print(f"Client ID: {client_id[:8]}...{client_id[-4:]}")
     
     print("\n🌐 Azure B2B External User Creation")
-    print("   External users will be created with B2B UPN format")
-    print("   Original email addresses will be preserved in 'mail' and 'otherMails'")
+    print("   ✓ External users will be created with B2B UPN format")
+    print("   ✓ Original email addresses will be preserved in 'mail' and 'otherMails'")
+    print("   ✓ Supports 'emailaddress', 'externalEmail', 'email', and 'mail' fields")
+    print("   ✓ Custom attributes stored in extension attributes")
     print()
     
     # Proceed with external user creation
@@ -651,8 +674,15 @@ if __name__ == "__main__":
         logger.info("📂 Loading user data and creating external users...")
         results = create_external_users_from_json("users.json", return_passwords=True, output_file="external_user_creation_results.json")
         
+        # Print summary first
+        if results["summary"]["successful_creations"] > 0:
+            print(f"🎉 Successfully created {results['summary']['successful_creations']} out of {results['summary']['total_users']} users")
+        
+        if results["summary"]["failed_creations"] > 0:
+            print(f"⚠️  Failed to create {results['summary']['failed_creations']} users")
+        
         # Print JSON results to console
-        print("📄 Operation Results:")
+        print("\n📄 Detailed Operation Results:")
         print(json.dumps(results, indent=2, ensure_ascii=False))
         
     except Exception as e:

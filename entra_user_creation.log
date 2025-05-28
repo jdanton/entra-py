@@ -118,3 +118,66 @@
 2025-05-28 14:55:37,685 - __main__ - INFO - Processing external user: Sarah Wilson
 2025-05-28 14:55:37,685 - __main__ - INFO - 🔐 Generated secure password for Sarah Wilson
 2025-05-28 14:55:37,685 - __main__ - INFO - Results saved to external_user_creation_results.json
+2025-05-28 15:02:57,652 - __main__ - INFO - 🚀 Starting Azure Entra ID External User Creator (B2B)
+2025-05-28 15:02:57,652 - __main__ - INFO - 📂 Loading user data and creating external users...
+2025-05-28 15:02:57,653 - __main__ - INFO - Loaded 4 users from users.json
+2025-05-28 15:02:57,653 - __main__ - INFO - Azure B2B configuration loaded successfully for tenant: 598c44cc...
+2025-05-28 15:02:57,653 - __main__ - INFO - Requesting access token for tenant: 598c44cc...
+2025-05-28 15:02:57,937 - __main__ - INFO - ✅ Access token acquired successfully
+2025-05-28 15:02:57,938 - __main__ - INFO - Processing external user: John Doe
+2025-05-28 15:02:57,938 - __main__ - INFO - 🔐 Generated secure password for John Doe
+2025-05-28 15:02:57,938 - __main__ - INFO - Processing external user: Jane Smith
+2025-05-28 15:02:57,938 - __main__ - INFO - 🔐 Generated secure password for Jane Smith
+2025-05-28 15:02:57,938 - __main__ - INFO - Processing external user: Mike Johnson
+2025-05-28 15:02:57,938 - __main__ - INFO - 🔐 Generated secure password for Mike Johnson
+2025-05-28 15:02:57,938 - __main__ - INFO - Processing external user: Sarah Wilson
+2025-05-28 15:02:57,938 - __main__ - INFO - 🔐 Generated secure password for Sarah Wilson
+2025-05-28 15:02:57,939 - __main__ - INFO - Results saved to external_user_creation_results.json
+2025-05-28 15:05:34,189 - __main__ - INFO - 🚀 Starting Azure Entra ID External User Creator (B2B)
+2025-05-28 15:05:34,189 - __main__ - INFO - 📂 Loading user data and creating external users...
+2025-05-28 15:05:34,190 - __main__ - ERROR - Invalid JSON format: Expecting value: line 1 column 1 (char 0)
+2025-05-28 15:06:07,177 - __main__ - INFO - 🚀 Starting Azure Entra ID External User Creator (B2B)
+2025-05-28 15:06:07,177 - __main__ - INFO - 📂 Loading user data and creating external users...
+2025-05-28 15:06:07,177 - __main__ - ERROR - Invalid JSON format: Expecting value: line 1 column 1 (char 0)
+2025-05-28 15:06:07,177 - __main__ - ERROR - ❌ Application error: 'summary'
+2025-05-28 15:06:41,834 - __main__ - INFO - 🚀 Starting Azure Entra ID External User Creator (B2B)
+2025-05-28 15:06:41,835 - __main__ - INFO - 📂 Loading user data and creating external users...
+2025-05-28 15:06:41,835 - __main__ - ERROR - Invalid JSON format: Expecting value: line 1 column 1 (char 0)
+2025-05-28 15:06:41,835 - __main__ - ERROR - ❌ Application error: 'summary'
+2025-05-28 15:07:37,655 - __main__ - INFO - 🚀 Starting Azure Entra ID External User Creator (B2B)
+2025-05-28 15:07:37,655 - __main__ - INFO - 📂 Loading user data and creating external users...
+2025-05-28 15:07:37,655 - __main__ - INFO - 📋 Loaded 4 users from users.json
+2025-05-28 15:07:37,655 - __main__ - INFO - ✅ Azure B2B configuration loaded successfully for tenant: 598c44cc...
+2025-05-28 15:07:37,655 - __main__ - INFO - 🔑 Requesting access token for tenant: 598c44cc...
+2025-05-28 15:07:38,055 - __main__ - INFO - ✅ Access token acquired successfully
+2025-05-28 15:07:38,055 - __main__ - INFO - 👤 Processing external user: John Doe
+2025-05-28 15:07:38,055 - __main__ - INFO - 🔐 Generated secure password for John Doe
+2025-05-28 15:07:38,055 - __main__ - INFO - 🏷️  Added primary_tenant_id: 12345678... for John Doe
+2025-05-28 15:07:38,666 - __main__ - ERROR - ❌ Error retrieving verified domains: 403 Client Error: Forbidden for url: https://graph.microsoft.com/v1.0/domains
+2025-05-28 15:07:38,666 - __main__ - WARNING - ⚠️  Using fallback domain: telescopedevexternal.onmicrosoft.com
+2025-05-28 15:07:38,666 - __main__ - INFO - 🔗 Created B2B UPN: johndoe@contoso.com -> johndoe_contoso.com#EXT#@telescopedevexternal.onmicrosoft.com
+2025-05-28 15:07:38,666 - __main__ - INFO - 👤 Creating external user: John Doe (johndoe@contoso.com)
+2025-05-28 15:07:39,570 - __main__ - INFO - ✅ External user created successfully: johndoe@contoso.com -> johndoe_contoso.com#EXT#@telescopedevexternal.onmicrosoft.com
+2025-05-28 15:07:39,570 - __main__ - INFO - ✅ Successfully created: John Doe
+2025-05-28 15:07:39,570 - __main__ - INFO - 👤 Processing external user: Jane Smith
+2025-05-28 15:07:39,570 - __main__ - INFO - 🔐 Generated secure password for Jane Smith
+2025-05-28 15:07:39,571 - __main__ - INFO - 🏷️  Added primary_tenant_id: 87654321... for Jane Smith
+2025-05-28 15:07:39,571 - __main__ - INFO - 🔗 Created B2B UPN: janesmith@contoso.com -> janesmith_contoso.com#EXT#@telescopedevexternal.onmicrosoft.com
+2025-05-28 15:07:39,571 - __main__ - INFO - 👤 Creating external user: Jane Smith (janesmith@contoso.com)
+2025-05-28 15:07:40,602 - __main__ - INFO - ✅ External user created successfully: janesmith@contoso.com -> janesmith_contoso.com#EXT#@telescopedevexternal.onmicrosoft.com
+2025-05-28 15:07:40,603 - __main__ - INFO - ✅ Successfully created: Jane Smith
+2025-05-28 15:07:40,603 - __main__ - INFO - 👤 Processing external user: Mike Johnson
+2025-05-28 15:07:40,603 - __main__ - INFO - 🔐 Generated secure password for Mike Johnson
+2025-05-28 15:07:40,603 - __main__ - INFO - 🏷️  Added primary_tenant_id: 11111111... for Mike Johnson
+2025-05-28 15:07:40,603 - __main__ - INFO - 🔗 Created B2B UPN: mikejohnson@contoso.com -> mikejohnson_contoso.com#EXT#@telescopedevexternal.onmicrosoft.com
+2025-05-28 15:07:40,604 - __main__ - INFO - 👤 Creating external user: Mike Johnson (mikejohnson@contoso.com)
+2025-05-28 15:07:41,113 - __main__ - INFO - ✅ External user created successfully: mikejohnson@contoso.com -> mikejohnson_contoso.com#EXT#@telescopedevexternal.onmicrosoft.com
+2025-05-28 15:07:41,115 - __main__ - INFO - ✅ Successfully created: Mike Johnson
+2025-05-28 15:07:41,115 - __main__ - INFO - 👤 Processing external user: Sarah Wilson
+2025-05-28 15:07:41,115 - __main__ - INFO - 🔐 Generated secure password for Sarah Wilson
+2025-05-28 15:07:41,115 - __main__ - INFO - 🏷️  Added primary_tenant_id: 99999999... for Sarah Wilson
+2025-05-28 15:07:41,115 - __main__ - INFO - 🔗 Created B2B UPN: sarahwilson@contoso.com -> sarahwilson_contoso.com#EXT#@telescopedevexternal.onmicrosoft.com
+2025-05-28 15:07:41,115 - __main__ - INFO - 👤 Creating external user: Sarah Wilson (sarahwilson@contoso.com)
+2025-05-28 15:07:41,955 - __main__ - INFO - ✅ External user created successfully: sarahwilson@contoso.com -> sarahwilson_contoso.com#EXT#@telescopedevexternal.onmicrosoft.com
+2025-05-28 15:07:41,958 - __main__ - INFO - ✅ Successfully created: Sarah Wilson
+2025-05-28 15:07:41,959 - __main__ - INFO - 💾 Results saved to external_user_creation_results.json
