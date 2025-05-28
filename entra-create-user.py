@@ -5,8 +5,18 @@ import os
 import secrets
 import string
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Any, Optional, List, Tuple
+
+# Load environment variables from .env file following Azure best practices
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+    logger = logging.getLogger(__name__)
+    logger.info("Environment variables loaded from .env file")
+except ImportError:
+    print("⚠️  python-dotenv not found. Install with: pip install python-dotenv")
+    print("   Or manually set environment variables in your shell")
 
 # Configure logging for Azure best practices
 logging.basicConfig(
@@ -19,6 +29,49 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+class AzureConfig:
+    """
+    Azure configuration management following Azure B2B best practices
+    """
+    def __init__(self):
+        # Load from environment variables with validation
+        self.tenant_id = os.getenv('AZURE_TENANT_ID')
+        self.client_id = os.getenv('AZURE_CLIENT_ID')
+        self.client_secret = os.getenv('AZURE_CLIENT_SECRET')
+        
+        # Validate required configuration
+        missing_vars = []
+        if not self.tenant_id:
+            missing_vars.append('AZURE_TENANT_ID')
+        if not self.client_id:
+            missing_vars.append('AZURE_CLIENT_ID')
+        if not self.client_secret:
+            missing_vars.append('AZURE_CLIENT_SECRET')
+            
+        if missing_vars:
+            error_msg = f"Missing required environment variables: {', '.join(missing_vars)}"
+            logger.error(error_msg)
+            logger.error("Please check your .env file or set these environment variables:")
+            for var in missing_vars:
+                logger.error(f"  export {var}='your-value-here'")
+            raise ValueError(f"Azure credentials not properly configured: {', '.join(missing_vars)}")
+        
+        # Validate GUID format for tenant_id
+        try:
+            uuid.UUID(self.tenant_id)
+        except ValueError:
+            logger.error(f"Invalid tenant ID format: {self.tenant_id}")
+            raise ValueError("AZURE_TENANT_ID must be a valid GUID")
+        
+        # Validate client_id GUID format
+        try:
+            uuid.UUID(self.client_id)
+        except ValueError:
+            logger.error(f"Invalid client ID format: {self.client_id}")
+            raise ValueError("AZURE_CLIENT_ID must be a valid GUID")
+        
+        logger.info(f"Azure B2B configuration loaded successfully for tenant: {self.tenant_id[:8]}...")
+
 class SecurePasswordGenerator:
     """
     Secure password generator following Azure AD password complexity requirements.
@@ -26,23 +79,7 @@ class SecurePasswordGenerator:
     
     @staticmethod
     def generate_password(length: int = 16) -> str:
-        """
-        Generate a cryptographically secure password that meets Azure AD requirements.
-        
-        Azure AD Password Requirements:
-        - At least 8 characters (we use 16 for better security)
-        - Contains characters from at least 3 of these categories:
-          * Uppercase letters (A-Z)
-          * Lowercase letters (a-z) 
-          * Numbers (0-9)
-          * Special characters
-        
-        Args:
-            length: Password length (minimum 12, default 16)
-            
-        Returns:
-            Secure password string
-        """
+        """Generate a cryptographically secure password that meets Azure AD requirements."""
         if length < 12:
             length = 12
             
@@ -70,108 +107,149 @@ class SecurePasswordGenerator:
         secrets.SystemRandom().shuffle(password)
         
         return ''.join(password)
-    
-    @staticmethod
-    def validate_password_strength(password: str) -> Tuple[bool, List[str]]:
-        """
-        Validate password against Azure AD requirements.
-        
-        Args:
-            password: Password to validate
-            
-        Returns:
-            Tuple of (is_valid, list_of_issues)
-        """
-        issues = []
-        
-        if len(password) < 8:
-            issues.append("Password must be at least 8 characters long")
-        
-        has_upper = any(c.isupper() for c in password)
-        has_lower = any(c.islower() for c in password)
-        has_digit = any(c.isdigit() for c in password)
-        has_special = any(c in "!@#$%^&*()_+-=[]{}|;:,.<>?" for c in password)
-        
-        categories = sum([has_upper, has_lower, has_digit, has_special])
-        
-        if categories < 3:
-            issues.append("Password must contain characters from at least 3 categories (uppercase, lowercase, numbers, special characters)")
-        
-        # Check for common weak patterns
-        if password.lower() in ['password', '12345678', 'qwerty123']:
-            issues.append("Password is too common")
-            
-        return len(issues) == 0, issues
 
-class EntraUserCreator:
-    def __init__(self, tenant_id: str, client_id: str, client_secret: str):
-        """
-        Initialize the Entra ID user creator.
-        
-        Args:
-            tenant_id: Your Azure AD tenant ID
-            client_id: Application (client) ID from app registration
-            client_secret: Client secret from app registration
-        """
-        self.tenant_id = tenant_id
-        self.client_id = client_id
-        self.client_secret = client_secret
+class EntraB2BUserCreator:
+    """
+    Enhanced Entra ID user creator with B2B external user support following Azure best practices
+    """
+    def __init__(self, config: AzureConfig):
+        self.config = config
         self.access_token = None
         self.graph_endpoint = "https://graph.microsoft.com/v1.0"
         self.password_generator = SecurePasswordGenerator()
+        self.verified_domains = None
     
     def get_access_token(self) -> Dict[str, Any]:
-        """
-        Get access token using client credentials flow.
-        
-        Returns:
-            Dict with authentication result and status
-        """
-        token_url = f"https://login.microsoftonline.com/{self.tenant_id}/oauth2/v2.0/token"
+        """Get access token using client credentials flow following Azure best practices."""
+        token_url = f"https://login.microsoftonline.com/{self.config.tenant_id}/oauth2/v2.0/token"
         
         token_data = {
-            'client_id': self.client_id,
+            'client_id': self.config.client_id,
             'scope': 'https://graph.microsoft.com/.default',
-            'client_secret': self.client_secret,
+            'client_secret': self.config.client_secret,
             'grant_type': 'client_credentials'
         }
         
         try:
-            response = requests.post(token_url, data=token_data)
+            logger.info(f"Requesting access token for tenant: {self.config.tenant_id[:8]}...")
+            response = requests.post(token_url, data=token_data, timeout=30)
             response.raise_for_status()
             
             token_response = response.json()
             self.access_token = token_response.get('access_token')
             
             if self.access_token:
-                logger.info("Access token acquired successfully")
+                logger.info("✅ Access token acquired successfully")
                 return {
                     "success": True,
                     "message": "Authentication successful",
-                    "timestamp": datetime.utcnow().isoformat()
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "token_type": token_response.get('token_type', 'Bearer'),
+                    "expires_in": token_response.get('expires_in', 3600)
                 }
             else:
-                logger.error("Failed to acquire access token")
+                logger.error("❌ Failed to acquire access token - no token in response")
                 return {
                     "success": False,
                     "message": "Failed to acquire access token",
-                    "timestamp": datetime.utcnow().isoformat()
+                    "timestamp": datetime.now(timezone.utc).isoformat()
                 }
                 
         except requests.exceptions.RequestException as e:
-            logger.error(f"Error acquiring access token: {e}")
+            logger.error(f"❌ Error acquiring access token: {e}")
             return {
                 "success": False,
                 "message": f"Authentication error: {str(e)}",
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": datetime.now(timezone.utc).isoformat()
             }
     
-    def create_user(self, user_data: Dict[str, Any], return_password: bool = False) -> Dict[str, Any]:
+    def get_verified_domains(self) -> List[str]:
         """
-        Create a new user in Azure AD.
+        Get verified domains for the tenant following Azure best practices.
+        
+        Returns:
+            List of verified domain names
+        """
+        if self.verified_domains is not None:
+            return self.verified_domains
+            
+        if not self.access_token:
+            logger.error("No access token available for domain verification")
+            return []
+        
+        headers = {
+            'Authorization': f'Bearer {self.access_token}',
+            'Content-Type': 'application/json'
+        }
+        
+        try:
+            domains_url = f"{self.graph_endpoint}/domains"
+            response = requests.get(domains_url, headers=headers, timeout=30)
+            response.raise_for_status()
+            
+            domains_data = response.json()
+            verified_domains = []
+            
+            for domain in domains_data.get('value', []):
+                if domain.get('isVerified', False):
+                    verified_domains.append(domain.get('id'))
+            
+            self.verified_domains = verified_domains
+            logger.info(f"Found {len(verified_domains)} verified domains: {', '.join(verified_domains)}")
+            return verified_domains
+            
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Error retrieving verified domains: {e}")
+            # Fallback to common default domain pattern
+            default_domain = f"{self.config.tenant_id.split('-')[0]}.onmicrosoft.com"
+            self.verified_domains = [default_domain]
+            logger.warning(f"Using fallback domain: {default_domain}")
+            return self.verified_domains
+    
+    def create_external_user_upn(self, external_email: str, verified_domains: List[str]) -> str:
+        """
+        Create a valid UPN for external users following Azure B2B best practices.
+        
+        Azure B2B Pattern: externaluser_domain.com#EXT#@yourtenant.onmicrosoft.com
         
         Args:
-            user_data: Dictionary containing user information
+            external_email: The user's external email address
+            verified_domains: List of verified domains for the tenant
+            
+        Returns:
+            Valid UPN for external user
+        """
+        # Use the primary verified domain (usually .onmicrosoft.com)
+        primary_domain = None
+        for domain in verified_domains:
+            if domain.endswith('.onmicrosoft.com'):
+                primary_domain = domain
+                break
+        
+        if not primary_domain:
+            primary_domain = verified_domains[0] if verified_domains else f"tenant.onmicrosoft.com"
+        
+        # Convert external email to B2B format
+        # Replace @ with _ and add domain extension
+        email_parts = external_email.split('@')
+        if len(email_parts) != 2:
+            raise ValueError(f"Invalid email format: {external_email}")
+        
+        username = email_parts[0]
+        domain = email_parts[1]
+        
+        # Azure B2B UPN format: username_domain.com#EXT#@tenant.onmicrosoft.com
+        b2b_upn = f"{username}_{domain}#EXT#@{primary_domain}"
+        
+        logger.info(f"Created B2B UPN: {external_email} -> {b2b_upn}")
+        return b2b_upn
+    
+    def create_external_user(self, user_data: Dict[str, Any], return_password: bool = False) -> Dict[str, Any]:
+        """
+        Create an external user following Azure B2B best practices.
+        
+        Args:
+            user_data: Dictionary containing user information with external email
             return_password: Whether to include the generated password in the response
             
         Returns:
@@ -181,23 +259,72 @@ class EntraUserCreator:
             return {
                 "success": False,
                 "message": "No access token available. Authentication required.",
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": datetime.now(timezone.utc).isoformat()
             }
         
-        headers = {
-            'Authorization': f'Bearer {self.access_token}',
-            'Content-Type': 'application/json'
-        }
+        # Get verified domains
+        verified_domains = self.get_verified_domains()
+        if not verified_domains:
+            return {
+                "success": False,
+                "message": "No verified domains found for tenant",
+                "timestamp": datetime.now(timezone.utc).isoformat()
+            }
         
-        create_user_url = f"{self.graph_endpoint}/users"
-        
-        # Store the generated password if it was auto-generated
-        generated_password = None
-        if 'passwordProfile' in user_data and isinstance(user_data['passwordProfile'], dict):
-            generated_password = user_data['passwordProfile'].get('password')
+        # Extract external email and create B2B UPN
+        external_email = user_data.get('externalEmail') or user_data.get('mail')
+        if not external_email:
+            return {
+                "success": False,
+                "message": "External email is required for B2B user creation",
+                "timestamp": datetime.now(timezone.utc).isoformat()
+            }
         
         try:
-            response = requests.post(create_user_url, headers=headers, json=user_data)
+            # Create B2B UPN
+            b2b_upn = self.create_external_user_upn(external_email, verified_domains)
+            
+            # Prepare user data for Azure AD following B2B best practices
+            azure_user_data = {
+                "accountEnabled": user_data.get('accountEnabled', True),
+                "displayName": user_data['displayName'],
+                "userPrincipalName": b2b_upn,
+                "mailNickname": user_data.get('mailNickname', external_email.split('@')[0]),
+                "mail": external_email,  # Store original external email
+                "givenName": user_data['givenName'],
+                "surname": user_data['surname'],
+                "userType": "Guest",  # Mark as external/guest user
+                "otherMails": [external_email]  # Additional email addresses
+            }
+            
+            # Add password profile if creating with password
+            if 'passwordProfile' in user_data:
+                azure_user_data['passwordProfile'] = user_data['passwordProfile']
+            
+            # Add optional fields
+            optional_fields = ['jobTitle', 'department', 'officeLocation', 'mobilePhone', 'businessPhones']
+            for field in optional_fields:
+                if field in user_data:
+                    azure_user_data[field] = user_data[field]
+            
+            # Add custom attributes if present
+            if 'onPremisesExtensionAttributes' in user_data:
+                azure_user_data['onPremisesExtensionAttributes'] = user_data['onPremisesExtensionAttributes']
+            
+            # Create the user
+            headers = {
+                'Authorization': f'Bearer {self.access_token}',
+                'Content-Type': 'application/json'
+            }
+            
+            create_user_url = f"{self.graph_endpoint}/users"
+            generated_password = None
+            
+            if 'passwordProfile' in azure_user_data:
+                generated_password = azure_user_data['passwordProfile'].get('password')
+            
+            logger.info(f"Creating external user: {user_data.get('displayName')} ({external_email})")
+            response = requests.post(create_user_url, headers=headers, json=azure_user_data, timeout=30)
             response.raise_for_status()
             
             created_user = response.json()
@@ -205,13 +332,15 @@ class EntraUserCreator:
             # Build successful response
             result = {
                 "success": True,
-                "message": "User created successfully",
-                "timestamp": datetime.utcnow().isoformat(),
+                "message": "External user created successfully",
+                "timestamp": datetime.now(timezone.utc).isoformat(),
                 "user": {
                     "objectId": created_user.get('id'),
                     "userPrincipalName": created_user.get('userPrincipalName'),
                     "displayName": created_user.get('displayName'),
                     "mail": created_user.get('mail'),
+                    "externalEmail": external_email,
+                    "userType": created_user.get('userType'),
                     "accountEnabled": created_user.get('accountEnabled'),
                     "createdDateTime": created_user.get('createdDateTime'),
                     "givenName": created_user.get('givenName'),
@@ -229,11 +358,11 @@ class EntraUserCreator:
             if return_password and generated_password:
                 result["credentials"] = {
                     "password": generated_password,
-                    "forceChangePasswordNextSignIn": user_data.get('passwordProfile', {}).get('forceChangePasswordNextSignIn', True),
+                    "forceChangePasswordNextSignIn": azure_user_data.get('passwordProfile', {}).get('forceChangePasswordNextSignIn', True),
                     "warning": "Store this password securely - it won't be available again"
                 }
             
-            logger.info(f"User created successfully: {created_user.get('userPrincipalName')}")
+            logger.info(f"✅ External user created successfully: {external_email} -> {b2b_upn}")
             return result
             
         except requests.exceptions.HTTPError as e:
@@ -244,41 +373,32 @@ class EntraUserCreator:
             except:
                 error_detail = str(e)
             
-            logger.error(f"Error creating user: {error_detail}")
+            logger.error(f"❌ Error creating external user: {error_detail}")
             return {
                 "success": False,
-                "message": f"User creation failed: {error_detail}",
-                "timestamp": datetime.utcnow().isoformat(),
+                "message": f"External user creation failed: {error_detail}",
+                "timestamp": datetime.now(timezone.utc).isoformat(),
                 "error": {
                     "type": "HTTP_ERROR",
                     "details": error_detail,
                     "statusCode": getattr(response, 'status_code', None)
                 }
             }
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Network error creating user: {e}")
+        except Exception as e:
+            logger.error(f"❌ Error creating external user: {e}")
             return {
                 "success": False,
-                "message": f"Network error: {str(e)}",
-                "timestamp": datetime.utcnow().isoformat(),
+                "message": f"Error: {str(e)}",
+                "timestamp": datetime.now(timezone.utc).isoformat(),
                 "error": {
-                    "type": "NETWORK_ERROR",
+                    "type": "PROCESSING_ERROR",
                     "details": str(e)
                 }
             }
 
-def load_user_data(json_file_path: str = "sample_users.json") -> Optional[Dict[str, Any]]:
-    """
-    Load user data from JSON file.
-    
-    Args:
-        json_file_path: Path to the JSON file containing user data
-        
-    Returns:
-        Dictionary containing user data or None if failed
-    """
+def load_user_data(json_file_path: str = "users.json") -> Optional[Dict[str, Any]]:
+    """Load user data from JSON file following Azure best practices."""
     try:
-        # Check if file exists
         if not os.path.exists(json_file_path):
             logger.error(f"JSON file not found: {json_file_path}")
             return None
@@ -286,7 +406,6 @@ def load_user_data(json_file_path: str = "sample_users.json") -> Optional[Dict[s
         with open(json_file_path, 'r', encoding='utf-8') as file:
             data = json.load(file)
         
-        # Validate required structure
         if 'users' not in data or 'tenant_config' not in data:
             logger.error("Invalid JSON structure. Missing 'users' or 'tenant_config' sections.")
             return None
@@ -301,42 +420,37 @@ def load_user_data(json_file_path: str = "sample_users.json") -> Optional[Dict[s
         logger.error(f"Error loading JSON file: {e}")
         return None
 
-def transform_user_data(user_info: Dict[str, Any], tenant_config: Dict[str, Any]) -> Dict[str, Any]:
+def transform_external_user_data(user_info: Dict[str, Any], tenant_config: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Transform user info from JSON into Azure AD user creation format.
+    Transform user info for external user creation following Azure B2B best practices.
     
     Args:
         user_info: User information from JSON
         tenant_config: Tenant configuration from JSON
         
     Returns:
-        Dictionary formatted for Azure AD user creation
+        Dictionary formatted for Azure AD external user creation
     """
     # Generate secure password if not specified
     password_generator = SecurePasswordGenerator()
     
     if 'password' in user_info and user_info['password']:
-        # Use provided password
         password = user_info['password']
-        # Validate provided password
-        is_valid, issues = password_generator.validate_password_strength(password)
-        if not is_valid:
-            logger.warning(f"Password for {user_info['displayName']} may not meet Azure AD requirements: {', '.join(issues)}")
     else:
-        # Generate secure password
         password_length = tenant_config.get('password_length', 16)
         password = password_generator.generate_password(password_length)
-        logger.info(f"Generated secure password for {user_info['displayName']}")
+        logger.info(f"🔐 Generated secure password for {user_info['displayName']}")
     
-    # Build userPrincipalName
-    domain = tenant_config.get('domain', 'yourdomain.onmicrosoft.com')
-    upn = f"{user_info['mailNickname']}@{domain}"
+    # For external users, use their actual external email
+    external_email = user_info.get('externalEmail') or user_info.get('email') or user_info.get('userPrincipalName')
+    if not external_email:
+        raise ValueError(f"External email is required for user {user_info.get('displayName', 'Unknown')}")
     
     user_data = {
         "accountEnabled": user_info.get('accountEnabled', True),
         "displayName": user_info['displayName'],
-        "mailNickname": user_info['mailNickname'],
-        "userPrincipalName": upn,
+        "externalEmail": external_email,
+        "mailNickname": user_info.get('mailNickname', external_email.split('@')[0]),
         "passwordProfile": {
             "forceChangePasswordNextSignIn": tenant_config.get('force_password_change', True),
             "password": password
@@ -345,7 +459,7 @@ def transform_user_data(user_info: Dict[str, Any], tenant_config: Dict[str, Any]
         "surname": user_info['surname']
     }
     
-    # Add optional fields if present
+    # Add optional fields
     optional_fields = ['jobTitle', 'department', 'officeLocation', 'mobilePhone', 'businessPhones']
     for field in optional_fields:
         if field in user_info:
@@ -355,7 +469,6 @@ def transform_user_data(user_info: Dict[str, Any], tenant_config: Dict[str, Any]
     if 'primary_tenant_id' in user_info:
         primary_tenant_id = user_info['primary_tenant_id']
         try:
-            # Validate GUID format
             uuid.UUID(primary_tenant_id)
             user_data["onPremisesExtensionAttributes"] = {
                 "extensionAttribute1": primary_tenant_id
@@ -365,10 +478,10 @@ def transform_user_data(user_info: Dict[str, Any], tenant_config: Dict[str, Any]
     
     return user_data
 
-def create_users_from_json(json_file_path: str = "sample_users.json", return_passwords: bool = False, 
-                          output_file: str = None) -> Dict[str, Any]:
+def create_external_users_from_json(json_file_path: str = "users.json", return_passwords: bool = False, 
+                                   output_file: str = None) -> Dict[str, Any]:
     """
-    Create users in the external tenant from JSON file.
+    Create external users in Azure AD from JSON file following Azure B2B best practices.
     
     Args:
         json_file_path: Path to the JSON file containing user data
@@ -378,12 +491,12 @@ def create_users_from_json(json_file_path: str = "sample_users.json", return_pas
     Returns:
         Dictionary containing complete operation results in JSON format
     """
-    operation_start = datetime.utcnow()
+    operation_start = datetime.now(timezone.utc)
     
     # Load user data from JSON
     data = load_user_data(json_file_path)
     if not data:
-        result = {
+        return {
             "operation": {
                 "success": False,
                 "message": "Failed to load user data",
@@ -391,29 +504,33 @@ def create_users_from_json(json_file_path: str = "sample_users.json", return_pas
                 "duration": "0.00s"
             }
         }
-        return result
     
-    # Configuration - Replace with your actual values
-    TENANT_ID = "598c44cc-c795-4d3b-9b71-ad77e74e1bdb"
-    CLIENT_ID = os.getenv('AZURE_CLIENT_ID', "your-app-registration-client-id")
-    CLIENT_SECRET = os.getenv('AZURE_CLIENT_SECRET', "your-app-registration-secret")
-    
-    # Initialize the user creator
-    user_creator = EntraUserCreator(TENANT_ID, CLIENT_ID, CLIENT_SECRET)
+    try:
+        # Initialize Azure configuration
+        config = AzureConfig()
+        user_creator = EntraB2BUserCreator(config)
+    except ValueError as e:
+        return {
+            "operation": {
+                "success": False,
+                "message": str(e),
+                "timestamp": operation_start.isoformat(),
+                "duration": f"{(datetime.now(timezone.utc) - operation_start).total_seconds():.2f}s"
+            }
+        }
     
     # Get access token
     auth_result = user_creator.get_access_token()
     if not auth_result["success"]:
-        result = {
+        return {
             "operation": {
                 "success": False,
                 "message": "Authentication failed",
                 "timestamp": operation_start.isoformat(),
-                "duration": f"{(datetime.utcnow() - operation_start).total_seconds():.2f}s"
+                "duration": f"{(datetime.now(timezone.utc) - operation_start).total_seconds():.2f}s"
             },
             "authentication": auth_result
         }
-        return result
     
     tenant_config = data['tenant_config']
     users_data = data['users']
@@ -424,59 +541,47 @@ def create_users_from_json(json_file_path: str = "sample_users.json", return_pas
     
     for user_info in users_data:
         try:
-            logger.info(f"Processing user: {user_info['displayName']}")
+            logger.info(f"Processing external user: {user_info['displayName']}")
             
-            # Transform user data for Azure AD
-            user_data = transform_user_data(user_info, tenant_config)
+            # Transform user data for Azure AD B2B
+            user_data = transform_external_user_data(user_info, tenant_config)
             
-            # Create the user
-            creation_result = user_creator.create_user(user_data, return_password=return_passwords)
+            # Create the external user
+            creation_result = user_creator.create_external_user(user_data, return_password=return_passwords)
             
             if creation_result["success"]:
                 created_users.append(creation_result)
             else:
                 failed_users.append({
                     "displayName": user_info.get('displayName', 'Unknown'),
+                    "externalEmail": user_info.get('externalEmail', user_info.get('email', 'Unknown')),
                     "error": creation_result
                 })
                 
-        except KeyError as e:
-            error_result = {
-                "success": False,
-                "message": f"Missing required field: {str(e)}",
-                "timestamp": datetime.utcnow().isoformat(),
-                "error": {
-                    "type": "MISSING_FIELD",
-                    "details": str(e)
-                }
-            }
-            failed_users.append({
-                "displayName": user_info.get('displayName', 'Unknown'),
-                "error": error_result
-            })
         except Exception as e:
             error_result = {
                 "success": False,
-                "message": f"Unexpected error: {str(e)}",
-                "timestamp": datetime.utcnow().isoformat(),
+                "message": f"Error processing user: {str(e)}",
+                "timestamp": datetime.now(timezone.utc).isoformat(),
                 "error": {
-                    "type": "UNEXPECTED_ERROR",
+                    "type": "PROCESSING_ERROR",
                     "details": str(e)
                 }
             }
             failed_users.append({
                 "displayName": user_info.get('displayName', 'Unknown'),
+                "externalEmail": user_info.get('externalEmail', user_info.get('email', 'Unknown')),
                 "error": error_result
             })
     
-    operation_end = datetime.utcnow()
+    operation_end = datetime.now(timezone.utc)
     duration = (operation_end - operation_start).total_seconds()
     
-    # Build comprehensive result
+    # Build comprehensive result following Azure best practices
     result = {
         "operation": {
             "success": len(failed_users) == 0,
-            "message": f"Processed {len(users_data)} users",
+            "message": f"Processed {len(users_data)} external users using Azure B2B",
             "timestamp": operation_start.isoformat(),
             "duration": f"{duration:.2f}s"
         },
@@ -489,6 +594,11 @@ def create_users_from_json(json_file_path: str = "sample_users.json", return_pas
         },
         "created_users": created_users,
         "failed_users": failed_users,
+        "azure_b2b_info": {
+            "pattern": "External users created with B2B UPN format: user_domain.com#EXT#@tenant.onmicrosoft.com",
+            "user_type": "Guest",
+            "original_emails_preserved": True
+        },
         "security_notes": {
             "passwords_included": return_passwords,
             "warning": "Handle generated passwords securely" if return_passwords else None
@@ -506,126 +616,52 @@ def create_users_from_json(json_file_path: str = "sample_users.json", return_pas
     
     return result
 
-def create_single_user(display_name: str, email: str, given_name: str, surname: str, 
-                      primary_tenant_id: str = None, password: str = None, 
-                      return_password: bool = True) -> Dict[str, Any]:
-    """
-    Create a single user with custom details and optional primary_tenant_id.
+if __name__ == "__main__":
+    logger.info("🚀 Starting Azure Entra ID External User Creator (B2B)")
     
-    Args:
-        display_name: Full display name
-        email: Email address (userPrincipalName)
-        given_name: First name
-        surname: Last name
-        primary_tenant_id: Optional GUID for primary tenant ID
-        password: Optional custom password (if None, a secure password will be generated)
-        return_password: Whether to include the password in the response
+    # Check environment variables
+    print("🔍 Validating Azure B2B configuration...")
+    
+    env_file_path = os.path.join(os.getcwd(), '.env')
+    if os.path.exists(env_file_path):
+        print(f"✅ Found .env file at: {env_file_path}")
+    else:
+        print("⚠️  No .env file found. Using system environment variables.")
+    
+    tenant_id = os.getenv('AZURE_TENANT_ID')
+    client_id = os.getenv('AZURE_CLIENT_ID')
+    client_secret = os.getenv('AZURE_CLIENT_SECRET')
+    
+    print(f"AZURE_TENANT_ID: {'✅ Set' if tenant_id else '❌ Not set'}")
+    print(f"AZURE_CLIENT_ID: {'✅ Set' if client_id else '❌ Not set'}")
+    print(f"AZURE_CLIENT_SECRET: {'✅ Set' if client_secret else '❌ Not set'}")
+    
+    if tenant_id:
+        print(f"Tenant ID: {tenant_id[:8]}...{tenant_id[-4:]}")
+    if client_id:
+        print(f"Client ID: {client_id[:8]}...{client_id[-4:]}")
+    
+    print("\n🌐 Azure B2B External User Creation")
+    print("   External users will be created with B2B UPN format")
+    print("   Original email addresses will be preserved in 'mail' and 'otherMails'")
+    print()
+    
+    # Proceed with external user creation
+    try:
+        logger.info("📂 Loading user data and creating external users...")
+        results = create_external_users_from_json("users.json", return_passwords=True, output_file="external_user_creation_results.json")
         
-    Returns:
-        Dict containing user creation result in JSON format
-    """
-    operation_start = datetime.utcnow()
-    
-    # Configuration
-    TENANT_ID = "598c44cc-c795-4d3b-9b71-ad77e74e1bdb"
-    CLIENT_ID = os.getenv('AZURE_CLIENT_ID', "your-app-registration-client-id")
-    CLIENT_SECRET = os.getenv('AZURE_CLIENT_SECRET', "your-app-registration-secret")
-    
-    user_creator = EntraUserCreator(TENANT_ID, CLIENT_ID, CLIENT_SECRET)
-    
-    # Authenticate
-    auth_result = user_creator.get_access_token()
-    if not auth_result["success"]:
-        return {
+        # Print JSON results to console
+        print("📄 Operation Results:")
+        print(json.dumps(results, indent=2, ensure_ascii=False))
+        
+    except Exception as e:
+        logger.error(f"❌ Application error: {e}")
+        error_result = {
             "operation": {
                 "success": False,
-                "message": "Authentication failed",
-                "timestamp": operation_start.isoformat(),
-                "duration": f"{(datetime.utcnow() - operation_start).total_seconds():.2f}s"
-            },
-            "authentication": auth_result
-        }
-    
-    # Generate secure password if not provided
-    password_warnings = []
-    if not password:
-        password_generator = SecurePasswordGenerator()
-        password = password_generator.generate_password()
-        logger.info(f"Generated secure password for {display_name}")
-    else:
-        # Validate provided password
-        password_generator = SecurePasswordGenerator()
-        is_valid, issues = password_generator.validate_password_strength(password)
-        if not is_valid:
-            password_warnings = issues
-            logger.warning(f"Provided password may not meet Azure AD requirements: {', '.join(issues)}")
-    
-    user_data = {
-        "accountEnabled": True,
-        "displayName": display_name,
-        "mailNickname": email.split('@')[0],
-        "userPrincipalName": email,
-        "passwordProfile": {
-            "forceChangePasswordNextSignIn": True,
-            "password": password
-        },
-        "givenName": given_name,
-        "surname": surname
-    }
-    
-    # Add custom attribute if provided
-    if primary_tenant_id:
-        # Validate GUID format
-        try:
-            uuid.UUID(primary_tenant_id)
-            user_data["onPremisesExtensionAttributes"] = {
-                "extensionAttribute1": primary_tenant_id
+                "message": f"Application error: {str(e)}",
+                "timestamp": datetime.now(timezone.utc).isoformat()
             }
-            logger.info(f"Adding primary_tenant_id: {primary_tenant_id}")
-        except ValueError:
-            logger.warning(f"Invalid GUID format for primary_tenant_id: {primary_tenant_id}")
-    
-    # Create the user
-    creation_result = user_creator.create_user(user_data, return_password=return_password)
-    
-    operation_end = datetime.utcnow()
-    duration = (operation_end - operation_start).total_seconds()
-    
-    # Build comprehensive result
-    result = {
-        "operation": {
-            "success": creation_result["success"],
-            "message": creation_result["message"],
-            "timestamp": operation_start.isoformat(),
-            "duration": f"{duration:.2f}s"
-        },
-        "authentication": auth_result,
-        "user_creation": creation_result
-    }
-    
-    if password_warnings:
-        result["password_warnings"] = password_warnings
-    
-    return result
-
-if __name__ == "__main__":
-    logger.info("Starting Azure External Tenant User Creator")
-    
-    # Option 1: Create users from JSON file with JSON output
-    logger.info("Creating users from JSON file with secure passwords...")
-    results = create_users_from_json("sample_users.json", return_passwords=True, output_file="user_creation_results.json")
-    
-    # Print JSON results to console
-    print(json.dumps(results, indent=2, ensure_ascii=False))
-    
-    # Option 2: Create a single custom user (uncomment to use)
-    # logger.info("Creating custom user with generated secure password...")
-    # custom_result = create_single_user(
-    #     display_name="Alice Johnson",
-    #     email="alice.johnson@yourdomain.onmicrosoft.com",
-    #     given_name="Alice",
-    #     surname="Johnson",
-    #     primary_tenant_id="11111111-2222-3333-4444-555555555555",
-    #     return_password=True
-    # )
-    # print(json.dumps(custom_result, indent=2, ensure_ascii=False))
+        }
+        print(json.dumps(error_result, indent=2, ensure_ascii=False))

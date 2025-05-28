@@ -1,0 +1,85 @@
+{
+  "operation": {
+    "success": false,
+    "message": "Processed 4 external users using Azure B2B",
+    "timestamp": "2025-05-28T18:55:37.208982+00:00",
+    "duration": "0.48s"
+  },
+  "authentication": {
+    "success": true,
+    "message": "Authentication successful",
+    "timestamp": "2025-05-28T18:55:37.684684+00:00",
+    "token_type": "Bearer",
+    "expires_in": 3599
+  },
+  "summary": {
+    "total_users": 4,
+    "successful_creations": 0,
+    "failed_creations": 4,
+    "success_rate": "0.0%"
+  },
+  "created_users": [],
+  "failed_users": [
+    {
+      "displayName": "John Doe",
+      "externalEmail": "Unknown",
+      "error": {
+        "success": false,
+        "message": "Error processing user: External email is required for user John Doe",
+        "timestamp": "2025-05-28T18:55:37.685073+00:00",
+        "error": {
+          "type": "PROCESSING_ERROR",
+          "details": "External email is required for user John Doe"
+        }
+      }
+    },
+    {
+      "displayName": "Jane Smith",
+      "externalEmail": "Unknown",
+      "error": {
+        "success": false,
+        "message": "Error processing user: External email is required for user Jane Smith",
+        "timestamp": "2025-05-28T18:55:37.685233+00:00",
+        "error": {
+          "type": "PROCESSING_ERROR",
+          "details": "External email is required for user Jane Smith"
+        }
+      }
+    },
+    {
+      "displayName": "Mike Johnson",
+      "externalEmail": "Unknown",
+      "error": {
+        "success": false,
+        "message": "Error processing user: External email is required for user Mike Johnson",
+        "timestamp": "2025-05-28T18:55:37.685329+00:00",
+        "error": {
+          "type": "PROCESSING_ERROR",
+          "details": "External email is required for user Mike Johnson"
+        }
+      }
+    },
+    {
+      "displayName": "Sarah Wilson",
+      "externalEmail": "Unknown",
+      "error": {
+        "success": false,
+        "message": "Error processing user: External email is required for user Sarah Wilson",
+        "timestamp": "2025-05-28T18:55:37.685428+00:00",
+        "error": {
+          "type": "PROCESSING_ERROR",
+          "details": "External email is required for user Sarah Wilson"
+        }
+      }
+    }
+  ],
+  "azure_b2b_info": {
+    "pattern": "External users created with B2B UPN format: user_domain.com#EXT#@tenant.onmicrosoft.com",
+    "user_type": "Guest",
+    "original_emails_preserved": true
+  },
+  "security_notes": {
+    "passwords_included": true,
+    "warning": "Handle generated passwords securely"
+  }
+}

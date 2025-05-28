@@ -1,0 +1,80 @@
+{
+  "operation": {
+    "success": false,
+    "message": "Processed 4 users",
+    "timestamp": "2025-05-28T18:52:10.652279+00:00",
+    "duration": "2.70s"
+  },
+  "authentication": {
+    "success": true,
+    "message": "Authentication successful",
+    "timestamp": "2025-05-28T18:52:10.987670+00:00",
+    "token_type": "Bearer",
+    "expires_in": 3599
+  },
+  "summary": {
+    "total_users": 4,
+    "successful_creations": 0,
+    "failed_creations": 4,
+    "success_rate": "0.0%"
+  },
+  "created_users": [],
+  "failed_users": [
+    {
+      "displayName": "John Doe",
+      "error": {
+        "success": false,
+        "message": "User creation failed: The domain portion of the userPrincipalName property is invalid. You must use one of the verified domain names in your organization.",
+        "timestamp": "2025-05-28T18:52:11.577572+00:00",
+        "error": {
+          "type": "HTTP_ERROR",
+          "details": "The domain portion of the userPrincipalName property is invalid. You must use one of the verified domain names in your organization.",
+          "statusCode": 400
+        }
+      }
+    },
+    {
+      "displayName": "Jane Smith",
+      "error": {
+        "success": false,
+        "message": "User creation failed: The domain portion of the userPrincipalName property is invalid. You must use one of the verified domain names in your organization.",
+        "timestamp": "2025-05-28T18:52:12.197299+00:00",
+        "error": {
+          "type": "HTTP_ERROR",
+          "details": "The domain portion of the userPrincipalName property is invalid. You must use one of the verified domain names in your organization.",
+          "statusCode": 400
+        }
+      }
+    },
+    {
+      "displayName": "Mike Johnson",
+      "error": {
+        "success": false,
+        "message": "User creation failed: The domain portion of the userPrincipalName property is invalid. You must use one of the verified domain names in your organization.",
+        "timestamp": "2025-05-28T18:52:12.809133+00:00",
+        "error": {
+          "type": "HTTP_ERROR",
+          "details": "The domain portion of the userPrincipalName property is invalid. You must use one of the verified domain names in your organization.",
+          "statusCode": 400
+        }
+      }
+    },
+    {
+      "displayName": "Sarah Wilson",
+      "error": {
+        "success": false,
+        "message": "User creation failed: The domain portion of the userPrincipalName property is invalid. You must use one of the verified domain names in your organization.",
+        "timestamp": "2025-05-28T18:52:13.347902+00:00",
+        "error": {
+          "type": "HTTP_ERROR",
+          "details": "The domain portion of the userPrincipalName property is invalid. You must use one of the verified domain names in your organization.",
+          "statusCode": 400
+        }
+      }
+    }
+  ],
+  "security_notes": {
+    "passwords_included": true,
+    "warning": "Handle generated passwords securely"
+  }
+}

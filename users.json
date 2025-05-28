@@ -1,6 +1,6 @@
 {
   "tenant_config": {
-    "domain": "yourdomain.onmicrosoft.com",
+    "domain": "telescopedevexternal.onmicrosoft.com",
     "default_password": "TempPassword123!",
     "force_password_change": true
   },

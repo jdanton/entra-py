@@ -4,20 +4,20 @@ A Python utility for creating users in Azure Entra ID (formerly Azure Active Dir
 
 ## Features
 
-- 🔐 **Secure Password Generation**: Cryptographically secure passwords meeting Azure AD requirements
+- 🔐 **Secure Password Generation**: Cryptographically secure passwords meeting EntraID requirements
 - 👥 **Bulk User Creation**: Create multiple users from JSON configuration
 - 🆔 **Custom Attributes**: Support for custom tenant ID attributes via extension attributes
 - ✅ **Password Validation**: Built-in password strength validation
-- 🔑 **Azure AD Integration**: Uses Microsoft Graph API with OAuth 2.0 client credentials flow
+- 🔑 **EntraID Integration**: Uses Microsoft Graph API with OAuth 2.0 client credentials flow
 - 📊 **Detailed Logging**: Comprehensive creation status and error reporting
 
 ## Prerequisites
 
 - Python 3.7+
-- Azure AD tenant with administrative privileges
-- App registration in Azure AD with appropriate permissions
+- EntraID tenant with administrative privileges
+- App registration in EntraID with appropriate permissions
 
-### Required Azure AD Permissions
+### Required EntraID Permissions
 
 Your app registration needs the following Microsoft Graph permissions:
 - `User.ReadWrite.All` (Application permission)
@@ -123,13 +123,13 @@ python entra-create-user.py
 The [`SecurePasswordGenerator`](entra-create-user.py) class provides:
 
 - Cryptographically secure random password generation
-- Azure AD password complexity compliance
+- EntraID password complexity compliance
 - Customizable password length (minimum 12 characters)
 - Password strength validation
 
 ### Password Requirements
 
-Generated passwords meet Azure AD requirements:
+Generated passwords meet EntraID requirements:
 - Minimum 8 characters (default: 16)
 - Contains characters from at least 3 categories:
   - Uppercase letters (A-Z)
@@ -143,7 +143,7 @@ Generated passwords meet Azure AD requirements:
 
 #### `EntraUserCreator`
 
-Main class for creating users in Azure AD.
+Main class for creating users in EntraID.
 
 **Methods:**
 - `get_access_token()`: Acquire OAuth 2.0 access token
@@ -193,7 +193,7 @@ Create a single user with custom details.
 
 ## Custom Attributes
 
-The utility supports adding custom attributes through Azure AD extension attributes:
+The utility supports adding custom attributes through EntraID extension attributes:
 
 - `primary_tenant_id`: Stored in `extensionAttribute1`
 - Automatically validates GUID format
@@ -206,7 +206,7 @@ The application includes comprehensive error handling for:
 - Authentication failures
 - Invalid user data
 - Network connectivity issues
-- Azure AD API errors
+- EntraID API errors
 - JSON parsing errors
 - Password validation failures
 
@@ -280,5 +280,5 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 For issues and questions:
 1. Check the troubleshooting section
-2. Review Azure AD documentation
+2. Review EntraID documentation
 3. Open an issue in the repository
