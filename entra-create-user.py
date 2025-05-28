@@ -4,7 +4,20 @@ import uuid
 import os
 import secrets
 import string
+import logging
+from datetime import datetime
 from typing import Dict, Any, Optional, List, Tuple
+
+# Configure logging for Azure best practices
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('entra_user_creation.log'),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
 
 class SecurePasswordGenerator:
     """
@@ -107,12 +120,12 @@ class EntraUserCreator:
         self.graph_endpoint = "https://graph.microsoft.com/v1.0"
         self.password_generator = SecurePasswordGenerator()
     
-    def get_access_token(self) -> bool:
+    def get_access_token(self) -> Dict[str, Any]:
         """
         Get access token using client credentials flow.
         
         Returns:
-            bool: True if token acquired successfully, False otherwise
+            Dict with authentication result and status
         """
         token_url = f"https://login.microsoftonline.com/{self.tenant_id}/oauth2/v2.0/token"
         
@@ -131,17 +144,29 @@ class EntraUserCreator:
             self.access_token = token_response.get('access_token')
             
             if self.access_token:
-                print("✓ Access token acquired successfully")
-                return True
+                logger.info("Access token acquired successfully")
+                return {
+                    "success": True,
+                    "message": "Authentication successful",
+                    "timestamp": datetime.utcnow().isoformat()
+                }
             else:
-                print("✗ Failed to acquire access token")
-                return False
+                logger.error("Failed to acquire access token")
+                return {
+                    "success": False,
+                    "message": "Failed to acquire access token",
+                    "timestamp": datetime.utcnow().isoformat()
+                }
                 
         except requests.exceptions.RequestException as e:
-            print(f"✗ Error acquiring access token: {e}")
-            return False
+            logger.error(f"Error acquiring access token: {e}")
+            return {
+                "success": False,
+                "message": f"Authentication error: {str(e)}",
+                "timestamp": datetime.utcnow().isoformat()
+            }
     
-    def create_user(self, user_data: Dict[str, Any], return_password: bool = False) -> Optional[Dict[str, Any]]:
+    def create_user(self, user_data: Dict[str, Any], return_password: bool = False) -> Dict[str, Any]:
         """
         Create a new user in Azure AD.
         
@@ -150,11 +175,14 @@ class EntraUserCreator:
             return_password: Whether to include the generated password in the response
             
         Returns:
-            Dict containing created user information including OID, or None if failed
+            Dict containing creation result with user information or error details
         """
         if not self.access_token:
-            print("✗ No access token available. Call get_access_token() first.")
-            return None
+            return {
+                "success": False,
+                "message": "No access token available. Authentication required.",
+                "timestamp": datetime.utcnow().isoformat()
+            }
         
         headers = {
             'Authorization': f'Bearer {self.access_token}',
@@ -165,7 +193,7 @@ class EntraUserCreator:
         
         # Store the generated password if it was auto-generated
         generated_password = None
-        if 'passwordProfile' in user_data and hasattr(user_data['passwordProfile'], 'get'):
+        if 'passwordProfile' in user_data and isinstance(user_data['passwordProfile'], dict):
             generated_password = user_data['passwordProfile'].get('password')
         
         try:
@@ -174,54 +202,70 @@ class EntraUserCreator:
             
             created_user = response.json()
             
-            # Extract key information including OID
-            user_info = {
-                'oid': created_user.get('id'),  # This is the Object ID (OID)
-                'userPrincipalName': created_user.get('userPrincipalName'),
-                'displayName': created_user.get('displayName'),
-                'mail': created_user.get('mail'),
-                'accountEnabled': created_user.get('accountEnabled'),
-                'createdDateTime': created_user.get('createdDateTime'),
-                'extensionAttributes': created_user.get('onPremisesExtensionAttributes', {}),
-                'full_response': created_user  # Include full response if needed
+            # Build successful response
+            result = {
+                "success": True,
+                "message": "User created successfully",
+                "timestamp": datetime.utcnow().isoformat(),
+                "user": {
+                    "objectId": created_user.get('id'),
+                    "userPrincipalName": created_user.get('userPrincipalName'),
+                    "displayName": created_user.get('displayName'),
+                    "mail": created_user.get('mail'),
+                    "accountEnabled": created_user.get('accountEnabled'),
+                    "createdDateTime": created_user.get('createdDateTime'),
+                    "givenName": created_user.get('givenName'),
+                    "surname": created_user.get('surname'),
+                    "jobTitle": created_user.get('jobTitle'),
+                    "department": created_user.get('department')
+                }
             }
+            
+            # Add extension attributes if present
+            if 'onPremisesExtensionAttributes' in created_user and created_user['onPremisesExtensionAttributes']:
+                result["user"]["customAttributes"] = created_user['onPremisesExtensionAttributes']
             
             # Securely include password if requested
             if return_password and generated_password:
-                user_info['generated_password'] = generated_password
-                print("⚠️  Generated password included in response - handle securely!")
+                result["credentials"] = {
+                    "password": generated_password,
+                    "forceChangePasswordNextSignIn": user_data.get('passwordProfile', {}).get('forceChangePasswordNextSignIn', True),
+                    "warning": "Store this password securely - it won't be available again"
+                }
             
-            print(f"✓ User created successfully:")
-            print(f"  Display Name: {user_info['displayName']}")
-            print(f"  UPN: {user_info['userPrincipalName']}")
-            print(f"  OID: {user_info['oid']}")
-            
-            # Display custom attribute if present
-            if 'onPremisesExtensionAttributes' in created_user and created_user['onPremisesExtensionAttributes']:
-                ext_attrs = created_user['onPremisesExtensionAttributes']
-                if 'extensionAttribute1' in ext_attrs:
-                    print(f"  Primary Tenant ID: {ext_attrs['extensionAttribute1']}")
-            
-            # Display password securely (only in development)
-            if return_password and generated_password:
-                print(f"  🔐 Generated Password: {generated_password}")
-                print("     ⚠️  Store this password securely - it won't be shown again!")
-            
-            return user_info
+            logger.info(f"User created successfully: {created_user.get('userPrincipalName')}")
+            return result
             
         except requests.exceptions.HTTPError as e:
-            error_detail = ""
+            error_detail = "Unknown error"
             try:
                 error_response = response.json()
                 error_detail = error_response.get('error', {}).get('message', str(e))
             except:
                 error_detail = str(e)
             
-            print(f"✗ Error creating user: {error_detail}")
-            return None
+            logger.error(f"Error creating user: {error_detail}")
+            return {
+                "success": False,
+                "message": f"User creation failed: {error_detail}",
+                "timestamp": datetime.utcnow().isoformat(),
+                "error": {
+                    "type": "HTTP_ERROR",
+                    "details": error_detail,
+                    "statusCode": getattr(response, 'status_code', None)
+                }
+            }
         except requests.exceptions.RequestException as e:
-            print(f"✗ Network error creating user: {e}")
-            return None
+            logger.error(f"Network error creating user: {e}")
+            return {
+                "success": False,
+                "message": f"Network error: {str(e)}",
+                "timestamp": datetime.utcnow().isoformat(),
+                "error": {
+                    "type": "NETWORK_ERROR",
+                    "details": str(e)
+                }
+            }
 
 def load_user_data(json_file_path: str = "sample_users.json") -> Optional[Dict[str, Any]]:
     """
@@ -236,7 +280,7 @@ def load_user_data(json_file_path: str = "sample_users.json") -> Optional[Dict[s
     try:
         # Check if file exists
         if not os.path.exists(json_file_path):
-            print(f"✗ JSON file not found: {json_file_path}")
+            logger.error(f"JSON file not found: {json_file_path}")
             return None
         
         with open(json_file_path, 'r', encoding='utf-8') as file:
@@ -244,17 +288,17 @@ def load_user_data(json_file_path: str = "sample_users.json") -> Optional[Dict[s
         
         # Validate required structure
         if 'users' not in data or 'tenant_config' not in data:
-            print("✗ Invalid JSON structure. Missing 'users' or 'tenant_config' sections.")
+            logger.error("Invalid JSON structure. Missing 'users' or 'tenant_config' sections.")
             return None
         
-        print(f"✓ Loaded {len(data['users'])} users from {json_file_path}")
+        logger.info(f"Loaded {len(data['users'])} users from {json_file_path}")
         return data
         
     except json.JSONDecodeError as e:
-        print(f"✗ Invalid JSON format: {e}")
+        logger.error(f"Invalid JSON format: {e}")
         return None
     except Exception as e:
-        print(f"✗ Error loading JSON file: {e}")
+        logger.error(f"Error loading JSON file: {e}")
         return None
 
 def transform_user_data(user_info: Dict[str, Any], tenant_config: Dict[str, Any]) -> Dict[str, Any]:
@@ -277,14 +321,12 @@ def transform_user_data(user_info: Dict[str, Any], tenant_config: Dict[str, Any]
         # Validate provided password
         is_valid, issues = password_generator.validate_password_strength(password)
         if not is_valid:
-            print(f"⚠️  Warning: Provided password for {user_info['displayName']} may not meet Azure AD requirements:")
-            for issue in issues:
-                print(f"   - {issue}")
+            logger.warning(f"Password for {user_info['displayName']} may not meet Azure AD requirements: {', '.join(issues)}")
     else:
         # Generate secure password
         password_length = tenant_config.get('password_length', 16)
         password = password_generator.generate_password(password_length)
-        print(f"🔐 Generated secure password for {user_info['displayName']}")
+        logger.info(f"Generated secure password for {user_info['displayName']}")
     
     # Build userPrincipalName
     domain = tenant_config.get('domain', 'yourdomain.onmicrosoft.com')
@@ -319,39 +361,59 @@ def transform_user_data(user_info: Dict[str, Any], tenant_config: Dict[str, Any]
                 "extensionAttribute1": primary_tenant_id
             }
         except ValueError:
-            print(f"Warning: Invalid GUID format for primary_tenant_id: {primary_tenant_id}")
-            print(f"User {user_info['displayName']} will be created without the custom attribute.")
+            logger.warning(f"Invalid GUID format for primary_tenant_id: {primary_tenant_id} for user {user_info['displayName']}")
     
     return user_data
 
-def create_users_from_json(json_file_path: str = "sample_users.json", return_passwords: bool = False) -> List[Dict[str, Any]]:
+def create_users_from_json(json_file_path: str = "sample_users.json", return_passwords: bool = False, 
+                          output_file: str = None) -> Dict[str, Any]:
     """
     Create users in the external tenant from JSON file.
     
     Args:
         json_file_path: Path to the JSON file containing user data
         return_passwords: Whether to include generated passwords in the response
+        output_file: Optional path to save JSON output to file
         
     Returns:
-        List of created user information dictionaries
+        Dictionary containing complete operation results in JSON format
     """
+    operation_start = datetime.utcnow()
+    
     # Load user data from JSON
     data = load_user_data(json_file_path)
     if not data:
-        return []
+        result = {
+            "operation": {
+                "success": False,
+                "message": "Failed to load user data",
+                "timestamp": operation_start.isoformat(),
+                "duration": "0.00s"
+            }
+        }
+        return result
     
     # Configuration - Replace with your actual values
     TENANT_ID = "598c44cc-c795-4d3b-9b71-ad77e74e1bdb"
-    CLIENT_ID = "your-app-registration-client-id"  # Replace with actual client ID
-    CLIENT_SECRET = "your-app-registration-secret"  # Replace with actual secret
+    CLIENT_ID = os.getenv('AZURE_CLIENT_ID', "your-app-registration-client-id")
+    CLIENT_SECRET = os.getenv('AZURE_CLIENT_SECRET', "your-app-registration-secret")
     
     # Initialize the user creator
     user_creator = EntraUserCreator(TENANT_ID, CLIENT_ID, CLIENT_SECRET)
     
     # Get access token
-    if not user_creator.get_access_token():
-        print("Failed to authenticate. Please check your credentials.")
-        return []
+    auth_result = user_creator.get_access_token()
+    if not auth_result["success"]:
+        result = {
+            "operation": {
+                "success": False,
+                "message": "Authentication failed",
+                "timestamp": operation_start.isoformat(),
+                "duration": f"{(datetime.utcnow() - operation_start).total_seconds():.2f}s"
+            },
+            "authentication": auth_result
+        }
+        return result
     
     tenant_config = data['tenant_config']
     users_data = data['users']
@@ -362,54 +424,91 @@ def create_users_from_json(json_file_path: str = "sample_users.json", return_pas
     
     for user_info in users_data:
         try:
-            print(f"\nProcessing user: {user_info['displayName']}")
+            logger.info(f"Processing user: {user_info['displayName']}")
             
             # Transform user data for Azure AD
             user_data = transform_user_data(user_info, tenant_config)
             
             # Create the user
-            created_user = user_creator.create_user(user_data, return_password=return_passwords)
+            creation_result = user_creator.create_user(user_data, return_password=return_passwords)
             
-            if created_user:
-                created_users.append(created_user)
+            if creation_result["success"]:
+                created_users.append(creation_result)
             else:
-                failed_users.append(user_info['displayName'])
+                failed_users.append({
+                    "displayName": user_info.get('displayName', 'Unknown'),
+                    "error": creation_result
+                })
                 
         except KeyError as e:
-            print(f"✗ Missing required field for user {user_info.get('displayName', 'Unknown')}: {e}")
-            failed_users.append(user_info.get('displayName', 'Unknown'))
+            error_result = {
+                "success": False,
+                "message": f"Missing required field: {str(e)}",
+                "timestamp": datetime.utcnow().isoformat(),
+                "error": {
+                    "type": "MISSING_FIELD",
+                    "details": str(e)
+                }
+            }
+            failed_users.append({
+                "displayName": user_info.get('displayName', 'Unknown'),
+                "error": error_result
+            })
         except Exception as e:
-            print(f"✗ Error processing user {user_info.get('displayName', 'Unknown')}: {e}")
-            failed_users.append(user_info.get('displayName', 'Unknown'))
+            error_result = {
+                "success": False,
+                "message": f"Unexpected error: {str(e)}",
+                "timestamp": datetime.utcnow().isoformat(),
+                "error": {
+                    "type": "UNEXPECTED_ERROR",
+                    "details": str(e)
+                }
+            }
+            failed_users.append({
+                "displayName": user_info.get('displayName', 'Unknown'),
+                "error": error_result
+            })
     
-    # Summary
-    print(f"\n{'='*60}")
-    print(f"CREATION SUMMARY")
-    print(f"{'='*60}")
-    print(f"✓ Successfully created: {len(created_users)} users")
-    print(f"✗ Failed to create: {len(failed_users)} users")
+    operation_end = datetime.utcnow()
+    duration = (operation_end - operation_start).total_seconds()
     
-    if created_users:
-        print(f"\nCreated Users:")
-        for user in created_users:
-            print(f"  • {user['displayName']} (OID: {user['oid']})")
+    # Build comprehensive result
+    result = {
+        "operation": {
+            "success": len(failed_users) == 0,
+            "message": f"Processed {len(users_data)} users",
+            "timestamp": operation_start.isoformat(),
+            "duration": f"{duration:.2f}s"
+        },
+        "authentication": auth_result,
+        "summary": {
+            "total_users": len(users_data),
+            "successful_creations": len(created_users),
+            "failed_creations": len(failed_users),
+            "success_rate": f"{(len(created_users) / len(users_data) * 100):.1f}%" if users_data else "0%"
+        },
+        "created_users": created_users,
+        "failed_users": failed_users,
+        "security_notes": {
+            "passwords_included": return_passwords,
+            "warning": "Handle generated passwords securely" if return_passwords else None
+        }
+    }
     
-    if failed_users:
-        print(f"\nFailed Users:")
-        for user_name in failed_users:
-            print(f"  • {user_name}")
+    # Save to file if requested
+    if output_file:
+        try:
+            with open(output_file, 'w', encoding='utf-8') as f:
+                json.dump(result, f, indent=2, ensure_ascii=False)
+            logger.info(f"Results saved to {output_file}")
+        except Exception as e:
+            logger.error(f"Failed to save results to file: {e}")
     
-    # Security reminder
-    if return_passwords and created_users:
-        print(f"\n🔐 SECURITY REMINDER:")
-        print(f"   Generated passwords are included in the response.")
-        print(f"   Ensure you handle them securely and store them appropriately.")
-    
-    return created_users
+    return result
 
 def create_single_user(display_name: str, email: str, given_name: str, surname: str, 
                       primary_tenant_id: str = None, password: str = None, 
-                      return_password: bool = True) -> Optional[Dict[str, Any]]:
+                      return_password: bool = True) -> Dict[str, Any]:
     """
     Create a single user with custom details and optional primary_tenant_id.
     
@@ -423,32 +522,43 @@ def create_single_user(display_name: str, email: str, given_name: str, surname: 
         return_password: Whether to include the password in the response
         
     Returns:
-        Dict containing user information including OID, or None if failed
+        Dict containing user creation result in JSON format
     """
+    operation_start = datetime.utcnow()
+    
     # Configuration
     TENANT_ID = "598c44cc-c795-4d3b-9b71-ad77e74e1bdb"
-    CLIENT_ID = "your-app-registration-client-id"  # Replace with actual client ID
-    CLIENT_SECRET = "your-app-registration-secret"  # Replace with actual secret
+    CLIENT_ID = os.getenv('AZURE_CLIENT_ID', "your-app-registration-client-id")
+    CLIENT_SECRET = os.getenv('AZURE_CLIENT_SECRET', "your-app-registration-secret")
     
     user_creator = EntraUserCreator(TENANT_ID, CLIENT_ID, CLIENT_SECRET)
     
-    if not user_creator.get_access_token():
-        print("Failed to authenticate.")
-        return None
+    # Authenticate
+    auth_result = user_creator.get_access_token()
+    if not auth_result["success"]:
+        return {
+            "operation": {
+                "success": False,
+                "message": "Authentication failed",
+                "timestamp": operation_start.isoformat(),
+                "duration": f"{(datetime.utcnow() - operation_start).total_seconds():.2f}s"
+            },
+            "authentication": auth_result
+        }
     
     # Generate secure password if not provided
+    password_warnings = []
     if not password:
         password_generator = SecurePasswordGenerator()
         password = password_generator.generate_password()
-        print(f"🔐 Generated secure password for {display_name}")
+        logger.info(f"Generated secure password for {display_name}")
     else:
         # Validate provided password
         password_generator = SecurePasswordGenerator()
         is_valid, issues = password_generator.validate_password_strength(password)
         if not is_valid:
-            print(f"⚠️  Warning: Provided password may not meet Azure AD requirements:")
-            for issue in issues:
-                print(f"   - {issue}")
+            password_warnings = issues
+            logger.warning(f"Provided password may not meet Azure AD requirements: {', '.join(issues)}")
     
     user_data = {
         "accountEnabled": True,
@@ -471,24 +581,46 @@ def create_single_user(display_name: str, email: str, given_name: str, surname: 
             user_data["onPremisesExtensionAttributes"] = {
                 "extensionAttribute1": primary_tenant_id
             }
-            print(f"Adding primary_tenant_id: {primary_tenant_id}")
+            logger.info(f"Adding primary_tenant_id: {primary_tenant_id}")
         except ValueError:
-            print(f"Warning: Invalid GUID format for primary_tenant_id: {primary_tenant_id}")
-            print("User will be created without the custom attribute.")
+            logger.warning(f"Invalid GUID format for primary_tenant_id: {primary_tenant_id}")
     
-    return user_creator.create_user(user_data, return_password=return_password)
+    # Create the user
+    creation_result = user_creator.create_user(user_data, return_password=return_password)
+    
+    operation_end = datetime.utcnow()
+    duration = (operation_end - operation_start).total_seconds()
+    
+    # Build comprehensive result
+    result = {
+        "operation": {
+            "success": creation_result["success"],
+            "message": creation_result["message"],
+            "timestamp": operation_start.isoformat(),
+            "duration": f"{duration:.2f}s"
+        },
+        "authentication": auth_result,
+        "user_creation": creation_result
+    }
+    
+    if password_warnings:
+        result["password_warnings"] = password_warnings
+    
+    return result
 
 if __name__ == "__main__":
-    print("Azure External Tenant User Creator")
-    print("=" * 40)
+    logger.info("Starting Azure External Tenant User Creator")
     
-    # Option 1: Create users from JSON file with secure password generation
-    print("\n1. Creating users from JSON file with secure passwords...")
-    users_with_oids = create_users_from_json("sample_users.json", return_passwords=True)
+    # Option 1: Create users from JSON file with JSON output
+    logger.info("Creating users from JSON file with secure passwords...")
+    results = create_users_from_json("sample_users.json", return_passwords=True, output_file="user_creation_results.json")
     
-    # Option 2: Create a single custom user with generated password (uncomment to use)
-    # print("\n2. Creating custom user with generated secure password...")
-    # custom_user = create_single_user(
+    # Print JSON results to console
+    print(json.dumps(results, indent=2, ensure_ascii=False))
+    
+    # Option 2: Create a single custom user (uncomment to use)
+    # logger.info("Creating custom user with generated secure password...")
+    # custom_result = create_single_user(
     #     display_name="Alice Johnson",
     #     email="alice.johnson@yourdomain.onmicrosoft.com",
     #     given_name="Alice",
@@ -496,10 +628,4 @@ if __name__ == "__main__":
     #     primary_tenant_id="11111111-2222-3333-4444-555555555555",
     #     return_password=True
     # )
-    # if custom_user:
-    #     print(f"Custom user created:")
-    #     print(f"  Name: {custom_user['displayName']}")
-    #     print(f"  UPN: {custom_user['userPrincipalName']}")
-    #     print(f"  OID: {custom_user['oid']}")
-    #     if 'generated_password' in custom_user:
-    #         print(f"  Password: {custom_user['generated_password']}")
+    # print(json.dumps(custom_result, indent=2, ensure_ascii=False))
