@@ -1,0 +1,49 @@
+{
+  "tenant_config": {
+    "domain": "yourdomain.onmicrosoft.com",
+    "default_password": "TempPassword123!",
+    "force_password_change": true
+  },
+  "users": [
+    {
+      "displayName": "John Doe",
+      "mailNickname": "johndoe",
+      "givenName": "John",
+      "surname": "Doe",
+      "jobTitle": "Software Developer",
+      "department": "Engineering",
+      "accountEnabled": true,
+      "primary_tenant_id": "12345678-1234-1234-1234-123456789012"
+    },
+    {
+      "displayName": "Jane Smith",
+      "mailNickname": "janesmith",
+      "givenName": "Jane",
+      "surname": "Smith",
+      "jobTitle": "Product Manager",
+      "department": "Product",
+      "accountEnabled": true,
+      "primary_tenant_id": "87654321-4321-4321-4321-210987654321"
+    },
+    {
+      "displayName": "Mike Johnson",
+      "mailNickname": "mikejohnson",
+      "givenName": "Mike",
+      "surname": "Johnson",
+      "jobTitle": "DevOps Engineer",
+      "department": "Infrastructure",
+      "accountEnabled": true,
+      "primary_tenant_id": "11111111-2222-3333-4444-555555555555"
+    },
+    {
+      "displayName": "Sarah Wilson",
+      "mailNickname": "sarahwilson",
+      "givenName": "Sarah",
+      "surname": "Wilson",
+      "jobTitle": "UX Designer",
+      "department": "Design",
+      "accountEnabled": true,
+      "primary_tenant_id": "99999999-8888-7777-6666-555555555555"
+    }
+  ]
+}
