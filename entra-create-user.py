@@ -74,12 +74,12 @@ class AzureConfig:
 
 class SecurePasswordGenerator:
     """
-    Secure password generator following Azure AD password complexity requirements.
+    Secure password generator following EntraID password complexity requirements.
     """
     
     @staticmethod
     def generate_password(length: int = 16) -> str:
-        """Generate a cryptographically secure password that meets Azure AD requirements."""
+        """Generate a cryptographically secure password that meets EntraID requirements."""
         if length < 12:
             length = 12
             
@@ -87,7 +87,7 @@ class SecurePasswordGenerator:
         uppercase = string.ascii_uppercase
         lowercase = string.ascii_lowercase
         digits = string.digits
-        # Azure AD safe special characters
+        # EntraID safe special characters
         special_chars = "!@#$%^&*()_+-=[]{}|;:,.<>?"
         
         # Ensure we have at least one character from each category
@@ -290,7 +290,7 @@ class EntraB2BUserCreator:
             # Create B2B UPN
             b2b_upn = self.create_external_user_upn(external_email, verified_domains)
             
-            # Prepare user data for Azure AD following B2B best practices
+            # Prepare user data for EntraID following B2B best practices
             azure_user_data = {
                 "accountEnabled": user_data.get('accountEnabled', True),
                 "displayName": user_data['displayName'],
@@ -435,7 +435,7 @@ def transform_external_user_data(user_info: Dict[str, Any], tenant_config: Dict[
         tenant_config: Tenant configuration from JSON
         
     Returns:
-        Dictionary formatted for Azure AD external user creation
+        Dictionary formatted for EntraID external user creation
     """
     # Generate secure password if not specified
     password_generator = SecurePasswordGenerator()
@@ -497,7 +497,7 @@ def transform_external_user_data(user_info: Dict[str, Any], tenant_config: Dict[
 def create_external_users_from_json(json_file_path: str = "users.json", return_passwords: bool = False, 
                                    output_file: str = None) -> Dict[str, Any]:
     """
-    Create external users in Azure AD from JSON file following Azure B2B best practices.
+    Create external users in EntraID from JSON file following Azure B2B best practices.
     
     Args:
         json_file_path: Path to the JSON file containing user data
@@ -559,7 +559,7 @@ def create_external_users_from_json(json_file_path: str = "users.json", return_p
         try:
             logger.info(f"👤 Processing external user: {user_info['displayName']}")
             
-            # Transform user data for Azure AD B2B
+            # Transform user data for EntraID B2B
             user_data = transform_external_user_data(user_info, tenant_config)
             
             # Create the external user
